@@ -1,0 +1,2 @@
+# AyyagariRobinson_ENV797_TSA_Competition_S2024
+Repository for Spring 2024 Time Series Analysis forecasting competition
