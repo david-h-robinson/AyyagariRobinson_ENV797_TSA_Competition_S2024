@@ -32,25 +32,39 @@ library(readxl)
 #Importing data
 data <- read_excel("./Data/load.xlsx")
 
-#Unpivoting data
-long_data <- data %>%
-  pivot_longer(cols = starts_with("h"),
-               names_to = "Hour",
-               values_to = "Value")
+df_load_data<-data[,3:26]
+df_load_processed<-df_load_data %>%
+  mutate(daily_mean=rowMeans(df_load_data, na.rm = TRUE))
 
-#Dropping meter ID column
-long_data <- long_data %>% select(2,3,4)
+data_final <- cbind(data[,2],df_load_processed[,25])
 
-#casting date column as date
-long_data$date <- as.Date(long_data$date)
 
 ```
 
 ```{r}
 
 #Showing initial plot
-ggplot(long_data,aes(x = date, y = Value)) + 
+ggplot(data_final,aes(x = date, y = daily_mean)) + 
   geom_line()
 
+```
+```{r}
+#creating a training set
+df_filtered <- df %>% 
+  filter(!(format(date, "%Y-%m") == "2011-06"))
+```
+
+
+
+```{r}
+#Converting to time series
+mts_data <- msts(data_final, seasonal.periods = c(7, 365.25), start = c(2005, 1, 1))
+ACFplot <- acf(mts_data[,2])
+PACFplot <- pacf(mts_data[,2])
+```
+```{r}
+#Fitting a Sarima
+SARIMA_autofit <- auto.arima(mts_data)
+#checkresiduals(SARIMA_autofit)
 ```
 
