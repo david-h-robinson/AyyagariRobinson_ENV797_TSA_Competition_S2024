@@ -38,15 +38,19 @@ long_data <- data %>%
                names_to = "Hour",
                values_to = "Value")
 
+#Dropping meter ID column
 long_data <- long_data %>% select(2,3,4)
 
+#casting date column as date
 long_data$date <- as.Date(long_data$date)
 
 ```
 
 ```{r}
 
-ggplot(long_data,aes(x=date, y=long_data[,3]))
+#Showing initial plot
+ggplot(long_data,aes(x = date, y = Value)) + 
+  geom_line()
 
 ```
 
