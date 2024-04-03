@@ -48,23 +48,72 @@ ggplot(data_final,aes(x = date, y = daily_mean)) +
   geom_line()
 
 ```
-```{r}
-#creating a training set
-df_filtered <- df %>% 
-  filter(!(format(date, "%Y-%m") == "2011-06"))
-```
-
 
 
 ```{r}
 #Converting to time series
-mts_data <- msts(data_final, seasonal.periods = c(7, 365.25), start = c(2005, 1, 1))
-ACFplot <- acf(mts_data[,2])
-PACFplot <- pacf(mts_data[,2])
+mts_data <- msts(data_final[,2],seasonal.periods =  c(7,365), start = c(2005, 01, 01), end=c(2011,05,31))
+head(mts_data)
+ACFplot <- acf(mts_data)
+PACFplot <- pacf(mts_data)
 ```
+```{r message=FALSE, warning=FALSE}
+#Decomposing the time series
+## ts_act_power_daily %>% mstl() = mstl(ts_act_power_daily)
+mts_data %>% mstl() %>%
+  autoplot()
+```
+
+
+
 ```{r}
-#Fitting a Sarima
-SARIMA_autofit <- auto.arima(mts_data)
-#checkresiduals(SARIMA_autofit)
+#testing set 
+mts_data_forecast <- msts(data_final[,2],seasonal.periods =  c(7,365), start = c(2011, 06, 01), end=c(2011,06,31))
+head(mts_data_forecast)
 ```
+```{r message=FALSE, warning=FALSE}
+#create a subset for training purpose
+n_for = 31
+ts_train <- subset(mts_data,
+                            end = length(mts_data)-n_for)
+
+#create a subset for testing purpose
+ts_test <- subset(mts_data,
+                          start = length(mts_data)-n_for)
+
+autoplot(ts_train)
+autoplot(ts_test)
+```
+
+```{r ARIMA, echo=TRUE, message=FALSE, warning=FALSE}
+
+ARIMA_Four_fit <- auto.arima(ts_train, 
+                             seasonal=FALSE, 
+                             lambda=0,
+                             xreg=fourier(ts_train, 
+                                          K=c(2,12))
+                             )
+
+
+#Forecast with ARIMA fit
+
+ARIMA_Four_for <- forecast(ARIMA_Four_fit,
+                           xreg=fourier(ts_train,
+                                        K=c(2,12),
+                                        h=31),
+                           h=31
+                           )
+
+
+autoplot(ARIMA_Four_for) + ylab("Active Power")
+```
+
+
+```{r}
+#head(ARIMA_Four_for)
+Final_Forecast_June<- data.frame(ARIMA_Four_for)
+Final_Forecast_June
+write.csv(Final_Forecast_June, file="./Data/Final_Forecast_June.csv")
+```
+
 
