@@ -52,7 +52,7 @@ ggplot(data_final,aes(x = date, y = daily_mean)) +
 
 ```{r}
 #Converting to time series
-mts_data <- msts(data_final[,2],seasonal.periods =  c(7,365), start = c(2005, 01, 01), end=c(2011,05,31))
+mts_data <- msts(data_final[,2],seasonal.periods =  c(7,365), start = c(2005, 01, 01), end=c(2011,06,31))
 head(mts_data)
 ACFplot <- acf(mts_data)
 PACFplot <- pacf(mts_data)
@@ -68,7 +68,7 @@ mts_data %>% mstl() %>%
 
 ```{r}
 #testing set 
-mts_data_forecast <- msts(data_final[,2],seasonal.periods =  c(7,365), start = c(2011, 06, 01), end=c(2011,06,31))
+mts_data_forecast <- msts(data_final[,2],seasonal.periods =  c(7,365), start = c(2011, 07, 01), end=c(2011,07,31))
 head(mts_data_forecast)
 ```
 ```{r message=FALSE, warning=FALSE}
