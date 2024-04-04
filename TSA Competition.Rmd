@@ -51,6 +51,7 @@ ggplot(data_final,aes(x = date, y = daily_mean)) +
 
 
 ```{r}
+
 #Converting to time series
 mts_data <- msts(data_final[,2],seasonal.periods =  c(7,365), start = c(2005, 01, 01), end=c(2011,06,31))
 head(mts_data)
@@ -62,11 +63,13 @@ PACFplot <- pacf(mts_data)
 ## ts_act_power_daily %>% mstl() = mstl(ts_act_power_daily)
 mts_data %>% mstl() %>%
   autoplot()
+
 ```
 
 
 
 ```{r}
+
 #testing set 
 mts_data_forecast <- msts(data_final[,2],seasonal.periods =  c(7,365), start = c(2011, 07, 01), end=c(2011,07,31))
 head(mts_data_forecast)
@@ -83,6 +86,7 @@ ts_test <- subset(mts_data,
 
 autoplot(ts_train)
 autoplot(ts_test)
+
 ```
 
 ```{r ARIMA, echo=TRUE, message=FALSE, warning=FALSE}
@@ -106,14 +110,18 @@ ARIMA_Four_for <- forecast(ARIMA_Four_fit,
 
 
 autoplot(ARIMA_Four_for) + ylab("Active Power")
+
 ```
 
 
 ```{r}
+
 #head(ARIMA_Four_for)
 Final_Forecast_June<- data.frame(ARIMA_Four_for)
 Final_Forecast_June
-write.csv(Final_Forecast_June, file="./Data/Final_Forecast_June.csv")
+colnames(Final_Forecast_June)
+write.csv(Final_Forecast_June, file="./Data/Final_Forecast_June.csv", row.names=F)
+
 ```
 
 
