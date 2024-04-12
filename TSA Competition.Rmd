@@ -67,14 +67,24 @@ mts_data %>% mstl() %>%
 ```
 
 
-
 ```{r}
 
+#QUESTION -- what does this code do? I don't see the analog in M10.
+
 #testing set 
-mts_data_forecast <- msts(data_final[,2],seasonal.periods =  c(7,365), start = c(2011, 07, 01), end=c(2011,07,31))
+mts_data_forecast <- msts(data_final[,2],seasonal.periods =  c(7,365),
+                          start = c(2011, 07, 01), end=c(2011,07,31))
 head(mts_data_forecast)
+
 ```
+
+
 ```{r message=FALSE, warning=FALSE}
+
+#QUESTION -- why is n_for = 31 here instead of 365? does that refer to the
+#length of the forecasting period? Or is it relative to daily data? Or
+#something else?
+
 #create a subset for training purpose
 n_for = 31
 ts_train <- subset(mts_data,
@@ -91,6 +101,8 @@ autoplot(ts_test)
 
 ```{r ARIMA, echo=TRUE, message=FALSE, warning=FALSE}
 
+#ARIMA + FOURIER MODEL
+
 ARIMA_Four_fit <- auto.arima(ts_train, 
                              seasonal=FALSE, 
                              lambda=0,
@@ -100,6 +112,12 @@ ARIMA_Four_fit <- auto.arima(ts_train,
 
 
 #Forecast with ARIMA fit
+
+#QUESTION -- why is n_for = 31 here instead of 365? does that refer to the
+#length of the forecasting period? Or is it relative to daily data? Or
+#something else?
+
+#QUESTION -- how did we think about our terms for K?
 
 ARIMA_Four_for <- forecast(ARIMA_Four_fit,
                            xreg=fourier(ts_train,
@@ -120,8 +138,20 @@ autoplot(ARIMA_Four_for) + ylab("Active Power")
 Final_Forecast_June<- data.frame(ARIMA_Four_for)
 Final_Forecast_June
 colnames(Final_Forecast_June)
-write.csv(Final_Forecast_June, file="./Data/Final_Forecast_June.csv", row.names=F)
+#write.csv(Final_Forecast_June, file="./Data/Final_Forecast_June.csv", row.names=F)
 
 ```
 
+
+```{r}
+
+#STL + ETS MODEL
+
+#Fit and forecast STL + ETS model to data
+ETS_fit <- stlf(ts_train,h=365)
+
+#Plot forecasting results
+autoplot(ETS_fit) + ylab("Active Power")
+
+```
 
