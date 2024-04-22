@@ -22,7 +22,12 @@ library(tidyverse)
 library(cowplot)
 library(sarima)
 library(readxl)
-
+#install.packages('smooth')
+library(smooth)
+#install.packages('zoo')
+library(zoo)
+install.packages('kableExtra')
+library(kableExtra)
 
 ```
 
@@ -38,11 +43,11 @@ df_load_processed<-df_load_data %>%
 
 data_final <- cbind(data[,2],df_load_processed[,25])
 
+#Importing temperature
 
 ```
 
 ```{r}
-
 #Showing initial plot
 ggplot(data_final,aes(x = date, y = daily_mean)) + 
   geom_line()
@@ -148,10 +153,40 @@ colnames(Final_Forecast_June)
 #STL + ETS MODEL
 
 #Fit and forecast STL + ETS model to data
-ETS_fit <- stlf(ts_train,h=365)
+ETS_fit <- stlf(ts_train,h=31)
 
 #Plot forecasting results
-autoplot(ETS_fit) + ylab("Active Power")
+autoplot(ETS_fit) #+ ylab("Active Power")
+
+#Plot model + observed data
+autoplot(mts_data) +
+  autolayer(ETS_fit, series="ETS+STL",PI=FALSE)#+
+  #ylab("Active Power") 
+
+```
+```{r}
+Final_Forecast_July_ETSSTL<- data.frame(ETS_fit)
+Final_Forecast_July_ETSSTL
+#colnames(Final_Forecast_July_ETSSTL)
+write.csv(Final_Forecast_July_ETSSTL, file="./Data/Final_Forecast_July_ETSSTL.csv", row.names=F)
+```
+```{r}
+#TBATS Model
+library(forecast)
+TBATS_fit <- tbats(ts_train)
+
+TBATS_for <- forecast(TBATS_fit, h=31)
+
+#Plot foresting results
+autoplot(TBATS_for) #+
+  #ylab("Power Consumption") 
+
+#Plot model + observed data
+autoplot(mts_data) +
+  autolayer(TBATS_for, series="TBATS",PI=FALSE)#+
+  #ylab("Active Power") 
+```
+```{r}
 
 ```
 
