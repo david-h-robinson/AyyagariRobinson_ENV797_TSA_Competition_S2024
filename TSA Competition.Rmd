@@ -218,7 +218,7 @@ library(readxl)
 library(smooth)
 #install.packages('zoo')
 library(zoo)
-install.packages('kableExtra')
+#install.packages('kableExtra')
 library(kableExtra)
 
 ```
@@ -457,5 +457,30 @@ autoplot(temp_test)
 regressors <- as.matrix(data.frame(fourier(ts_train, K=c(2,12)),"temp"=temp_train))
 #Fitting an ARIMA model with fourier terms as exogenous variables
 
+ARIMA_Four_fit_reg<- auto.arima(ts_train,
+                                seasonal = FALSE,
+                                lambda = 0,
+                                xreg = regressors)
+
+temp_for<- forecast(temp_train, h=31)
+regressors_for<- as.matrix(data.frame(fourier(ts_train, K=c(2,12),h=31),"temp"=temp_for$mean))
+
+ARIMA_Four_for_REG<- forecast(ARIMA_Four_fit_reg,
+                              xreg=regressors_for,
+                              h=31)
+
+#plotting results
+autoplot(ARIMA_Four_for_REG)+ylab("Load")
+
+autoplot(mts_data)+
+  autolayer(ARIMA_Four_for_REG, series="Arima fourier temperature", PI=FALSE)+
+  ylab("Load")
+
+```
+```{r}
+Final_Forecast_July_reg<- data.frame(ARIMA_Four_for_REG)
+Final_Forecast_July_reg
+#colnames(Final_Forecast_July_ETSSTL)
+write.csv(Final_Forecast_July_reg, file="./Data/Final_Forecast_July_reg.csv", row.names=F)
 ```
 
