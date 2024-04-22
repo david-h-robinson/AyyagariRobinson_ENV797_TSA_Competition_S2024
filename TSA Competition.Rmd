@@ -187,9 +187,7 @@ autoplot(mts_data) +
   autolayer(TBATS_for, series="TBATS",PI=FALSE)#+
   #ylab("Active Power") 
 ```
-```{r}
 
-```
 
 =======
 ---
@@ -241,7 +239,6 @@ data_final <- cbind(data[,2],df_load_processed[,25])
 ```
 
 ```{r}
-
 #Showing initial plot
 ggplot(data_final,aes(x = date, y = daily_mean)) + 
   geom_line()
@@ -380,8 +377,85 @@ autoplot(mts_data) +
   autolayer(TBATS_for, series="TBATS",PI=FALSE)#+
   #ylab("Active Power") 
 ```
+
+
 ```{r}
+#Neural Network model
+NN_fit <- nnetar(ts_train,
+                 p=1,
+                 P=2,
+                 xreg=fourier(ts_train, K=c(2,12)))
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for <- forecast(NN_fit, h=31,xreg=fourier(ts_train, 
+                                          K=c(2,12),h=31))
+
+#Plot foresting results
+autoplot(NN_for) +
+  ylab("Active Power") 
+
+#Plot model + observed data
+autoplot(ts_train) +
+  autolayer(NN_for, series="Neural Network",PI=FALSE)+
+  ylab("Active Power") 
+```
+```{r}
+Final_Forecast_July_NN<- data.frame(NN_for)
+Final_Forecast_July_NN
+#colnames(Final_Forecast_July_ETSSTL)
+write.csv(Final_Forecast_July_NN, file="./Data/Final_Forecast_July_NN_12.csv", row.names=F)
+```
+
+## Fitting Exogenous variables
+
+```{r}
+#importing and wrangling temperature data
+tempdata <- read_excel("./Data/temperature.xlsx")
+df_temp_data<-tempdata[,3:30] %>%
+  mutate(daily_temp_mean=rowMeans(df_temp_data, na.rm = TRUE))
+#head(df_temp_data)
+
+data_temp_final <- cbind(tempdata[,1:2],df_temp_data[,29])
+#head(data_temp_final)
+
+daily_temp <- data_temp_final %>%
+  group_by(date) %>%
+  summarise(daily_temps = mean(daily_temp_mean, na.rm = TRUE))
+
+#Showing initial plot
+ggplot(daily_temp,aes(x = date, y = daily_temps)) + 
+  geom_line()
 
 ```
 
->>>>>>> 98b663e8e5212491c9d7323219d6249ff1531cb0
+
+
+```{r}
+#converting to timeseries
+mts_data_temp <- msts(daily_temp[,2],seasonal.periods =  c(7,365), start = c(2005, 01, 01), end=c(2011,06,31))
+head(mts_data_temp)
+ACFplot <- acf(mts_data_temp)
+PACFplot <- pacf(mts_data_temp)
+
+```
+
+```{r}
+#creating train and test data
+#create a subset for training purpose
+n_for = 31
+temp_train <- subset(mts_data_temp,
+                            end = length(mts_data_temp)-n_for)
+
+#create a subset for testing purpose
+temp_test <- subset(mts_data_temp,
+                          start = length(mts_data_temp)-n_for)
+
+autoplot(temp_train)
+autoplot(temp_test)
+```
+```{r}
+regressors <- as.matrix(data.frame(fourier(ts_train, K=c(2,12)),"temp"=temp_train))
+#Fitting an ARIMA model with fourier terms as exogenous variables
+
+```
+
