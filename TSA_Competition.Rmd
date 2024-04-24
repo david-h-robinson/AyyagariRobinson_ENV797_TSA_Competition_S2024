@@ -1,0 +1,457 @@
+---
+title: "TSA Competition"
+author: "Meera Ayyagari and David Robinson"
+date: "2024-04-24"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+## Loading packages
+
+```{r}
+
+library(lubridate)
+library(ggplot2)
+library(forecast)
+library(Kendall)
+library(tseries)
+library(outliers)
+library(tidyverse)
+library(cowplot)
+library(sarima)
+library(readxl)
+#install.packages('smooth')
+library(smooth)
+#install.packages('zoo')
+library(zoo)
+#install.packages('kableExtra')
+library(kableExtra)
+
+```
+
+```{r}
+
+#Importing data and wrangling
+
+#Importing data
+data <- read_excel("./Data/load.xlsx")
+
+df_load_data<-data[,3:26]
+df_load_processed<-df_load_data %>%
+  mutate(daily_mean=rowMeans(df_load_data, na.rm = TRUE))
+
+data_final <- cbind(data[,2],df_load_processed[,25])
+
+```
+
+```{r}
+
+#Showing initial plot
+ggplot(data_final,aes(x = date, y = daily_mean)) + 
+  geom_line()
+
+```
+
+```{r}
+
+#Converting to time series
+mts_data <- msts(data_final[,2],seasonal.periods =  c(7,365),
+                 start = c(2005, 01, 01), end=c(2011,06,31))
+head(mts_data)
+ACFplot <- acf(mts_data)
+PACFplot <- pacf(mts_data)
+
+```
+
+```{r message=FALSE, warning=FALSE}
+#Decomposing the time series
+## ts_act_power_daily %>% mstl() = mstl(ts_act_power_daily)
+mts_data %>% mstl() %>%
+  autoplot()
+
+```
+
+```{r}
+
+#testing set 
+mts_data_forecast <- msts(data_final[,2],seasonal.periods =  c(7,365),
+                          start = c(2011, 07, 01), end=c(2011,07,31))
+head(mts_data_forecast)
+
+```
+
+```{r message=FALSE, warning=FALSE}
+
+#create a subset for training purpose
+n_for = 31
+ts_train <- subset(mts_data,
+                            end = length(mts_data)-n_for)
+
+#create a subset for testing purpose
+ts_test <- subset(mts_data,
+                          start = length(mts_data)-n_for)
+
+autoplot(ts_train)
+autoplot(ts_test)
+
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+
+#ARIMA + FOURIER MODEL
+
+ARIMA_Four_fit <- auto.arima(ts_train, 
+                             seasonal=FALSE, 
+                             lambda=0,
+                             xreg=fourier(ts_train, 
+                                          K=c(2,12))
+                             )
+
+
+#Forecast with ARIMA fit
+
+ARIMA_Four_for <- forecast(ARIMA_Four_fit,
+                           xreg=fourier(ts_train,
+                                        K=c(2,12),
+                                        h=31),
+                           h=31
+                           )
+
+
+autoplot(ARIMA_Four_for) + ylab("Active Power")
+
+#Checking accuracy of forecast
+accuracy_ARIMA_Four_for <- accuracy(ARIMA_Four_for)
+accuracy_ARIMA_Four_for
+
+```
+
+```{r}
+
+#head(ARIMA_Four_for)
+Final_Forecast_June<- data.frame(ARIMA_Four_for)
+Final_Forecast_June
+colnames(Final_Forecast_June)
+#write.csv(Final_Forecast_June, file="./Data/Final_Forecast_June.csv", row.names=F)
+
+```
+
+```{r}
+
+#STL + ETS MODEL
+
+#Fit and forecast STL + ETS model to data
+ETS_fit <- stlf(ts_train,h=31)
+
+#Plot forecasting results
+autoplot(ETS_fit) #+ ylab("Active Power")
+
+#Plot model + observed data
+autoplot(mts_data) +
+  autolayer(ETS_fit, series="ETS+STL",PI=FALSE)#+
+  #ylab("Active Power") 
+
+#Checking accuracy of forecast
+accuracy_ETS_fit <- accuracy(ETS_fit)
+accuracy_ETS_fit
+
+```
+
+```{r}
+
+Final_Forecast_July_ETSSTL<- data.frame(ETS_fit)
+Final_Forecast_July_ETSSTL
+#colnames(Final_Forecast_July_ETSSTL)
+write.csv(Final_Forecast_July_ETSSTL,
+          file="./Data/Final_Forecast_July_ETSSTL.csv", row.names=F)
+
+```
+
+```{r}
+
+#TBATS Model
+library(forecast)
+TBATS_fit <- tbats(ts_train)
+
+TBATS_for <- forecast(TBATS_fit, h=31)
+
+#Plot foresting results
+autoplot(TBATS_for) #+
+  #ylab("Power Consumption") 
+
+#Plot model + observed data
+autoplot(mts_data) +
+  autolayer(TBATS_for, series="TBATS",PI=FALSE)#+
+  #ylab("Active Power") 
+
+#Checking accuracy of forecast
+accuracy_TBATS_for <- accuracy(TBATS_for)
+accuracy_TBATS_for
+
+```
+
+
+```{r}
+
+#Neural Network model
+NN_fit <- nnetar(ts_train,
+                 p=1,
+                 P=1,
+                 xreg=fourier(ts_train, K=c(2,12)))
+
+#NN_for <- forecast(NN_fit, h=365) 
+NN_for <- forecast(NN_fit, h=31,xreg=fourier(ts_train, 
+                                          K=c(2,12),h=31))
+
+#Plot foresting results
+autoplot(NN_for) +
+  ylab("Active Power") 
+
+#Plot model + observed data
+autoplot(ts_train) +
+  autolayer(NN_for, series="Neural Network",PI=FALSE)+
+  ylab("Active Power") 
+
+#Checking accuracy of forecast
+accuracy_NN_for <- accuracy(NN_for)
+accuracy_NN_for
+
+```
+
+```{r}
+Final_Forecast_July_NN<- data.frame(NN_for)
+Final_Forecast_July_NN
+#colnames(Final_Forecast_July_ETSSTL)
+#write.csv(Final_Forecast_July_NN, file="./Data/Final_Forecast_July_NN_24.csv", row.names=F)
+
+```
+
+## Fitting Exogenous variables - Temperature
+
+```{r}
+
+#importing and wrangling temperature data
+tempdata <- read_excel("./Data/temperature.xlsx")
+df_temp_data <- tempdata[,3:30]
+
+df_temp_data <- df_temp_data %>%
+  mutate(daily_temp_mean=rowMeans(df_temp_data, na.rm = TRUE))
+
+#head(df_temp_data)
+
+data_temp_final <- cbind(tempdata[,1:2],df_temp_data[,29])
+#head(data_temp_final)
+
+daily_temp <- data_temp_final %>%
+  group_by(date) %>%
+  summarise(daily_temps = mean(daily_temp_mean, na.rm = TRUE))
+
+#Showing initial plot
+ggplot(daily_temp,aes(x = date, y = daily_temps)) + 
+  geom_line()
+
+```
+
+```{r}
+
+#converting to timeseries
+mts_data_temp <- msts(daily_temp[,2],
+                      seasonal.periods =  c(7,365),
+                      start = c(2005, 01, 01),
+                      end=c(2011,06,31))
+head(mts_data_temp)
+ACFplot <- acf(mts_data_temp)
+PACFplot <- pacf(mts_data_temp)
+
+```
+
+```{r}
+
+#creating train and test data
+#create a subset for training purpose
+n_for = 31
+temp_train <- subset(mts_data_temp,
+                            end = length(mts_data_temp)-n_for)
+
+#create a subset for testing purpose
+temp_test <- subset(mts_data_temp,
+                          start = length(mts_data_temp)-n_for)
+
+autoplot(temp_train)
+autoplot(temp_test)
+
+```
+
+```{r}
+
+regressors <- as.matrix(data.frame(fourier(ts_train, K=c(2,12)),
+                                   "temp"=temp_train))
+#Fitting an ARIMA model with fourier terms as exogenous variables
+
+ARIMA_Four_fit_reg<- auto.arima(ts_train,
+                                seasonal = FALSE,
+                                lambda = 0,
+                                xreg = regressors)
+
+temp_for<- forecast(temp_train, h=31)
+regressors_for<- as.matrix(data.frame(fourier(ts_train, K=c(2,12),h=31),
+                                      "temp"=temp_for$mean))
+
+ARIMA_Four_for_REG <- forecast(ARIMA_Four_fit_reg,
+                              xreg=regressors_for,
+                              h=31)
+
+#Checking accuracy of forecast
+accuracy_ARIMA_Four_for_REG <- accuracy(ARIMA_Four_for_REG)
+accuracy_ARIMA_Four_for_REG
+
+#plotting results
+autoplot(ARIMA_Four_for_REG)+ylab("Load")
+
+autoplot(mts_data)+
+  autolayer(ARIMA_Four_for_REG, series="Arima fourier temperature", PI=FALSE)+
+  ylab("Load")
+
+```
+
+```{r}
+
+Final_Forecast_July_reg<- data.frame(ARIMA_Four_for_REG)
+Final_Forecast_July_reg
+#colnames(Final_Forecast_July_ETSSTL)
+#write.csv(Final_Forecast_July_reg, file="./Data/Final_Forecast_July_reg.csv", row.names=F)
+
+```
+
+## Fitting Exogenous variables - Humidity
+
+```{r}
+
+#importing and wrangling humidity data
+humiditydata <- read_excel("./Data/relative_humidity.xlsx")
+df_hum_data <- humiditydata[,3:30]
+
+df_hum_data <- df_hum_data %>%
+  mutate(daily_hum_mean=rowMeans(df_hum_data, na.rm = TRUE))
+
+#head(df_temp_data)
+
+data_hum_final <- cbind(humiditydata[,1:2],df_hum_data[,29])
+head(data_hum_final)
+
+daily_humidity <- data_hum_final %>%
+  group_by(date) %>%
+  summarise(daily_hum = mean(daily_hum_mean, na.rm = TRUE))
+
+#Showing initial plot
+ggplot(daily_humidity,aes(x = date, y = daily_hum)) + 
+  geom_line()
+
+```
+
+```{r}
+
+#converting to timeseries
+mts_data_hum <- msts(daily_humidity[,2],seasonal.periods =  c(7,365),
+                     start = c(2005, 01, 01), end=c(2011,06,31))
+head(mts_data_temp)
+ACFplot <- acf(mts_data_hum)
+PACFplot <- pacf(mts_data_hum)
+
+```
+
+```{r}
+
+#creating train and test data
+#create a subset for training purpose
+n_for = 31
+hum_train <- subset(mts_data_hum,
+                            end = length(mts_data_hum)-n_for)
+
+hum_test <- subset(mts_data_hum,
+                          start = length(mts_data_hum)-n_for)
+
+autoplot(hum_train)
+autoplot(hum_test)
+
+```
+
+```{r}
+
+regressors <- as.matrix(data.frame(fourier(ts_train, K=c(2,12)),
+                                   "temp"=hum_train))
+#Fitting an ARIMA model with fourier terms as exogenous variables
+
+ARIMA_Four_fit_reg<- auto.arima(ts_train,
+                                seasonal = FALSE,
+                                lambda = 0,
+                                xreg = regressors)
+
+hum_for<- forecast(hum_train, h=31)
+regressors_for<- as.matrix(data.frame(fourier(ts_train, K=c(2,12),h=31),
+                                      "temp"=hum_for$mean))
+
+ARIMA_Four_for_REG_humidity <- forecast(ARIMA_Four_fit_reg,
+                              xreg=regressors_for,
+                              h=31)
+
+#accuracy_ARIMA_Four_for_REG_humidity <- accuracy(ARIMA_Four_for_REG_humidity)
+#accuracy_ARIMA_Four_for_REG_humidity
+
+#plotting results
+autoplot(ARIMA_Four_for_REG)+ylab("Load")
+
+autoplot(mts_data)+
+  autolayer(ARIMA_Four_for_REG, series="Arima fourier HUmidity", PI=FALSE)+
+  ylab("Load")
+
+```
+
+```{r}
+
+Final_Forecast_July_reg<- data.frame(ARIMA_Four_for_REG)
+Final_Forecast_July_reg
+#colnames(Final_Forecast_July_ETSSTL)
+#write.csv(Final_Forecast_July_reg, file="./Data/Final_Forecast_July_reg_humidity.csv", row.names=F)
+
+```
+
+```{r}
+
+#Accuracy table
+
+#create data frame
+df_accuracy <- as.data.frame(rbind(accuracy_ARIMA_Four_for,
+                                   accuracy_ETS_fit,
+                                   accuracy_TBATS_for,
+                                   accuracy_ARIMA_Four_for_REG))
+row.names(df_accuracy) <- c("ARIMA Fourier",
+                            "ETS+STL",
+                            "TBATS",
+                            "ARIMA Fourier_Reg_Temp")
+
+#choose model with lowest MAPE
+best_model_index_MAPE <- which.min(df_accuracy[,"MAPE"])
+cat("The best model by MAPE is:",
+    row.names(df_accuracy[best_model_index_MAPE,]))
+
+kbl(df_accuracy, 
+      caption = "Forecast Accuracy Table",
+      digits = array(5,ncol(df_accuracy))) %>%
+  kable_styling(full_width = FALSE, position = "center") %>%
+  #highlight model with lowest MAPE
+  kable_styling(latex_options="striped",
+                stripe_index = which.min(df_accuracy[,"MAPE"]))
+
+```
+
