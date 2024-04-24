@@ -383,12 +383,12 @@ autoplot(mts_data) +
 #Neural Network model
 NN_fit <- nnetar(ts_train,
                  p=1,
-                 P=2,
+                 P=1,
                  xreg=fourier(ts_train, K=c(2,12)))
 
 #NN_for <- forecast(NN_fit, h=365) 
 NN_for <- forecast(NN_fit, h=31,xreg=fourier(ts_train, 
-                                          K=c(2,12),h=31))
+                                          K=c(1,12),h=31))
 
 #Plot foresting results
 autoplot(NN_for) +
@@ -403,10 +403,10 @@ autoplot(ts_train) +
 Final_Forecast_July_NN<- data.frame(NN_for)
 Final_Forecast_July_NN
 #colnames(Final_Forecast_July_ETSSTL)
-write.csv(Final_Forecast_July_NN, file="./Data/Final_Forecast_July_NN_12.csv", row.names=F)
+write.csv(Final_Forecast_July_NN, file="./Data/Final_Forecast_July_NN_24.csv", row.names=F)
 ```
 
-## Fitting Exogenous variables
+## Fitting Exogenous variables - Temperature
 
 ```{r}
 #importing and wrangling temperature data
@@ -483,4 +483,75 @@ Final_Forecast_July_reg
 #colnames(Final_Forecast_July_ETSSTL)
 write.csv(Final_Forecast_July_reg, file="./Data/Final_Forecast_July_reg.csv", row.names=F)
 ```
+## Fitting Exogenous variables - Humidity
+
+```{r}
+#importing and wrangling humidity data
+humiditydata <- read_excel("./Data/relative_humidity.xlsx")
+df_hum_data<-humiditydata[,3:30] %>%
+  mutate(daily_hum_mean=rowMeans(df_hum_data, na.rm = TRUE))
+#head(df_temp_data)
+
+data_hum_final <- cbind(humiditydata[,1:2],df_hum_data[,29])
+head(data_hum_final)
+
+daily_humidity <- data_hum_final %>%
+  group_by(date) %>%
+  summarise(daily_hum = mean(daily_hum_mean, na.rm = TRUE))
+
+#Showing initial plot
+ggplot(daily_humidity,aes(x = date, y = daily_hum)) + 
+  geom_line()
+```
+```{r}
+#converting to timeseries
+mts_data_hum <- msts(daily_humidity[,2],seasonal.periods =  c(7,365), start = c(2005, 01, 01), end=c(2011,06,31))
+head(mts_data_temp)
+ACFplot <- acf(mts_data_hum)
+PACFplot <- pacf(mts_data_hum)
+
+```
+```{r}
+#creating train and test data
+#create a subset for training purpose
+n_for = 31
+hum_train <- subset(mts_data_hum,
+                            end = length(mts_data_hum)-n_for)
+
+hum_test <- subset(mts_data_hum,
+                          start = length(mts_data_hum)-n_for)
+
+autoplot(hum_train)
+autoplot(hum_test)
+```
+```{r}
+regressors <- as.matrix(data.frame(fourier(ts_train, K=c(2,12)),"temp"=hum_train))
+#Fitting an ARIMA model with fourier terms as exogenous variables
+
+ARIMA_Four_fit_reg<- auto.arima(ts_train,
+                                seasonal = FALSE,
+                                lambda = 0,
+                                xreg = regressors)
+
+hum_for<- forecast(hum_train, h=31)
+regressors_for<- as.matrix(data.frame(fourier(ts_train, K=c(2,12),h=31),"temp"=hum_for$mean))
+
+ARIMA_Four_for_REG<- forecast(ARIMA_Four_fit_reg,
+                              xreg=regressors_for,
+                              h=31)
+
+#plotting results
+autoplot(ARIMA_Four_for_REG)+ylab("Load")
+
+autoplot(mts_data)+
+  autolayer(ARIMA_Four_for_REG, series="Arima fourier HUmidity", PI=FALSE)+
+  ylab("Load")
+```
+```{r}
+Final_Forecast_July_reg<- data.frame(ARIMA_Four_for_REG)
+Final_Forecast_July_reg
+#colnames(Final_Forecast_July_ETSSTL)
+write.csv(Final_Forecast_July_reg, file="./Data/Final_Forecast_July_reg_humidity.csv", row.names=F)
+```
+
 
