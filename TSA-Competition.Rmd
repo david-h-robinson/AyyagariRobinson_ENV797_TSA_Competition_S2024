@@ -1,15 +1,13 @@
 ---
 title: "TSA Competition"
 author: "Meera Ayyagari and David Robinson"
+output: pdf_document
 date: "2024-04-24"
-output:
-  html_document:
-    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-	echo = TRUE,
+	echo = FALSE,
 	message = FALSE,
 	warning = FALSE
 )
@@ -17,7 +15,7 @@ knitr::opts_chunk$set(
 
 ## Loading packages
 
-```{r}
+```{r loading packages}
 
 library(lubridate)
 library(ggplot2)
@@ -38,7 +36,7 @@ library(kableExtra)
 
 ```
 
-```{r}
+```{r Importing and wrangling}
 
 #Importing data and wrangling
 
@@ -53,7 +51,7 @@ data_final <- cbind(data[,2],df_load_processed[,25])
 
 ```
 
-```{r}
+```{r Initial plot}
 
 #Showing initial plot
 ggplot(data_final,aes(x = date, y = daily_mean)) + 
@@ -61,7 +59,7 @@ ggplot(data_final,aes(x = date, y = daily_mean)) +
 
 ```
 
-```{r}
+```{r Time series conversion}
 
 #Converting to time series
 mts_data <- msts(data_final[,2],seasonal.periods =  c(7,365),
@@ -80,7 +78,7 @@ mts_data %>% mstl() %>%
 
 ```
 
-```{r}
+```{r }
 
 #testing set 
 mts_data_forecast <- msts(data_final[,2],seasonal.periods =  c(7,365),
@@ -105,7 +103,7 @@ autoplot(ts_test)
 
 ```
 
-```{r echo=TRUE, message=FALSE, warning=FALSE}
+```{r ARIMA, echo=TRUE, message=FALSE, warning=FALSE}
 
 #ARIMA + FOURIER MODEL
 
